@@ -5,7 +5,6 @@ import io
 import logging
 from typing import Optional
 
-import pandas as pd
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from sqlalchemy import desc, select
 
@@ -46,6 +45,8 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Expected a .csv or .tsv file")
     content = await file.read()
     try:
+        import pandas as pd  # lazy — heavy import
+
         sep = "\t" if file.filename.lower().endswith(".tsv") else ","
         df = pd.read_csv(io.BytesIO(content), sep=sep)
     except Exception as exc:  # noqa: BLE001

@@ -16,7 +16,6 @@ import time
 from datetime import datetime
 from typing import Iterable
 
-import pandas as pd
 from sqlalchemy import select
 
 from app.models.db import SessionLocal, Ticket, init_db, session_scope
@@ -160,5 +159,7 @@ def process_records(rows: Iterable[dict], do_cluster: bool = True) -> dict:
 
 
 def process_csv(path: str, do_cluster: bool = True) -> dict:
+    import pandas as pd  # heavy — import on demand
+
     df = pd.read_csv(path)
     return process_records(df.to_dict(orient="records"), do_cluster=do_cluster)

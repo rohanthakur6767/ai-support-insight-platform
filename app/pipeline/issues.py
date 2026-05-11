@@ -17,7 +17,6 @@ import re
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.cluster import KMeans
 
 from app.pipeline.embed import encode
 
@@ -58,6 +57,8 @@ def cluster_issues(
 ) -> list[IssueCluster]:
     if not messages:
         return []
+    from sklearn.cluster import KMeans  # heavy — import on demand
+
     k = min(k, max(1, len(messages) // 4))  # keep clusters sized > a handful
     vecs = encode(messages)
     km = KMeans(n_clusters=k, n_init=10, random_state=random_state)

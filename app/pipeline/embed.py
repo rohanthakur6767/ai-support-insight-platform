@@ -3,6 +3,11 @@
 Uses a small sentence-transformer model so the pipeline runs free, locally, and fast.
 The same embeddings power: zero-shot classification, KMeans issue clustering, and the
 agent-facing semantic-search lookup served by /tickets/search.
+
+Imports of ``sentence_transformers`` and ``chromadb`` are deferred to first use so
+that simply importing this module is cheap. That matters on tiny-CPU PaaS instances
+(Render free tier, etc.) where top-level loading of these libraries would push the
+worker past the platform's port-bind timeout.
 """
 from __future__ import annotations
 
@@ -10,10 +15,7 @@ import functools
 import logging
 from typing import Iterable, Sequence
 
-import chromadb
 import numpy as np
-from chromadb.config import Settings as ChromaSettings
-from sentence_transformers import SentenceTransformer
 
 from app.config import get_settings
 
@@ -21,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 @functools.lru_cache(maxsize=1)
-def get_embedder() -> SentenceTransformer:
+def get_embedder():
+    from sentence_transformers import SentenceTransformer  # heavy — import on demand
+
     cfg = get_settings()
     logger.info("Loading embedding model: %s", cfg.embed_model)
     return SentenceTransformer(cfg.embed_model)
@@ -40,6 +44,9 @@ def encode(texts: Sequence[str], batch_size: int = 64) -> np.ndarray:
 
 @functools.lru_cache(maxsize=1)
 def get_chroma():
+    import chromadb  # heavy — pulls in onnxruntime
+    from chromadb.config import Settings as ChromaSettings
+
     cfg = get_settings()
     client = chromadb.PersistentClient(
         path=cfg.chroma_dir,
