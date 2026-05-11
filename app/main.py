@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,6 +15,10 @@ from app.config import get_settings
 from app.models.db import init_db
 
 
+# Tracks whether the first-boot seed has finished. Surfaced by /health.
+_SEED_STATE = {"running": False, "done": False, "error": None}
+
+
 def _configure_logging(level: str) -> None:
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
@@ -21,16 +26,31 @@ def _configure_logging(level: str) -> None:
     )
 
 
+def _run_seed_background() -> None:
+    """Run seed_if_empty() in a daemon thread so it can't block the event loop."""
+    log = logging.getLogger(__name__)
+    _SEED_STATE["running"] = True
+    try:
+        seed_if_empty()
+        _SEED_STATE["done"] = True
+        log.info("Background seed complete")
+    except Exception as exc:  # noqa: BLE001
+        _SEED_STATE["error"] = str(exc)
+        log.exception("Background seed failed: %s", exc)
+    finally:
+        _SEED_STATE["running"] = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     cfg = get_settings()
     _configure_logging(cfg.log_level)
     init_db()
-    try:
-        seed_if_empty()
-    except Exception as exc:  # noqa: BLE001 - boot must not crash on a seed failure
-        logging.getLogger(__name__).exception("Seed failed (continuing without data): %s", exc)
-    logging.getLogger(__name__).info("API ready (model=%s)", cfg.groq_model)
+    # Kick the seed off in a daemon thread so uvicorn opens its port immediately.
+    # On platforms with a port-scan timeout (Render), this is what lets the deploy
+    # succeed even though the first-boot seed takes ~30–60 s.
+    threading.Thread(target=_run_seed_background, name="seed", daemon=True).start()
+    logging.getLogger(__name__).info("API ready (model=%s); seed running in background", cfg.groq_model)
     yield
 
 
@@ -57,7 +77,14 @@ app.include_router(insights_api.router)
 
 @app.get("/health", tags=["meta"])
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "seed": {
+            "running": _SEED_STATE["running"],
+            "done": _SEED_STATE["done"],
+            "error": _SEED_STATE["error"],
+        },
+    }
 
 
 @app.get("/", tags=["meta"])
