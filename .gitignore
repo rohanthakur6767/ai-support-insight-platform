@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+.env.local
+.idea/
+.vscode/
+.DS_Store
+data/*.db
+data/*.csv
+data/chroma/
+
+# Original assignment brief — not our work product
+Assignment - AI_ML-Software Dev.docx.pdf
+*.log
+.pytest_cache/
+.streamlit/secrets.toml
+node_modules/
+dist/
+build/
+.coverage
+htmlcov/

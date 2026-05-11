@@ -1,0 +1,33 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: support-insights-api:latest
+    container_name: support-insights-api
+    env_file: .env
+    environment:
+      DB_URL: sqlite:////app/data/tickets.db
+      CHROMA_DIR: /app/data/chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    image: support-insights-dashboard:latest
+    container_name: support-insights-dashboard
+    environment:
+      API_BASE_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  app-data:

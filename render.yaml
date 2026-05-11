@@ -1,0 +1,50 @@
+# Render Blueprint — provisions both services on the free tier.
+#
+# Usage:
+#   1. Push this repo to GitHub.
+#   2. In the Render dashboard: "New +" → "Blueprint" → pick this repo.
+#   3. After provisioning:
+#      - Set GROQ_API_KEY on the API service (Environment tab).
+#      - Set API_BASE_URL on the dashboard service to the API's public URL
+#        (e.g. https://support-insights-api.onrender.com).
+#   4. Optional CI/CD: copy each service's "Deploy Hook" URL into GitHub
+#      secrets (RENDER_DEPLOY_HOOK_API, RENDER_DEPLOY_HOOK_DASHBOARD) so the
+#      GitHub Actions deploy job can trigger redeploys on push to main.
+#
+# Notes on the free tier:
+#   - No persistent disk. The API self-seeds 5k tickets at first boot
+#     (~30–60 s) via app/bootstrap.py.
+#   - Web services spin down after 15 min idle; first request after idle
+#     incurs a cold start (~30 s).
+
+services:
+  - type: web
+    name: support-insights-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false           # set manually in the Render dashboard
+      - key: DB_URL
+        value: sqlite:////app/data/tickets.db
+      - key: CHROMA_DIR
+        value: /app/data/chroma
+      - key: SEED_ON_BOOT
+        value: "1"
+      - key: SEED_N
+        value: "5000"
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: web
+    name: support-insights-dashboard
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile.dashboard
+    envVars:
+      - key: API_BASE_URL
+        sync: false           # set to https://support-insights-api.onrender.com after first deploy
