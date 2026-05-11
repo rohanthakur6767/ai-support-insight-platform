@@ -32,10 +32,10 @@ services:
         value: sqlite:////app/data/tickets.db
       - key: CHROMA_DIR
         value: /app/data/chroma
+      # Seed is baked into the Docker image at build time (see Dockerfile), so
+      # the runtime container starts fast and doesn't spend memory regenerating data.
       - key: SEED_ON_BOOT
-        value: "1"
-      - key: SEED_N
-        value: "5000"
+        value: "0"
       - key: LOG_LEVEL
         value: INFO
 

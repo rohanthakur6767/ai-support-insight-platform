@@ -27,9 +27,20 @@ COPY app ./app
 COPY dashboard ./dashboard
 COPY scripts ./scripts
 
-RUN mkdir -p /app/data
+# Pre-seed the database + vector store at build time.
+#
+# We run the full pipeline here (Render's build VM has plenty of RAM/CPU) so
+# the runtime container only needs to serve, not crunch. This is what lets us
+# fit on a 512 MB free-tier instance — the heavy embed/classify/cluster pass
+# is already done by the time the container boots.
+ARG SEED_N=5000
+RUN mkdir -p /app/data && \
+    python -m scripts.generate_data --n ${SEED_N} --out /app/data/tickets.csv && \
+    python -m scripts.run_pipeline --csv /app/data/tickets.csv && \
+    rm /app/data/tickets.csv
 
-ENV PORT=8000
+ENV PORT=8000 \
+    SEED_ON_BOOT=0
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
